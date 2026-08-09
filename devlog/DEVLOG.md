@@ -10,6 +10,7 @@
 - 用户批准《粉色 PDF 分页器》开发计划。
 - 搭建项目文档骨架：创建 `docs/`（需求、技术、设计、流程、测试五份标准文件）、`devlog/`（日志与待办）、`AGENTS.md`、`README.md`、`.gitignore`。
 - 确定技术选型：Electron + 原生 HTML/CSS/JS + qpdf（打包内置），详见 `docs/technical-design.md`。
+- 完成首次 git 提交：`6b1216b docs: 初始化项目骨架与开发文档`（10 个文件，557 行）。
 
 ### 进行中
 
