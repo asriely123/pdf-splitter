@@ -335,6 +335,7 @@ input {
 .segment-card {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   background: var(--white);
   border: 1px solid var(--pink-border);
@@ -454,6 +455,11 @@ input {
   font-weight: 600;
 }
 
+.segment-status.error {
+  color: var(--error);
+  font-weight: 600;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -485,9 +491,8 @@ input {
 }
 
 .input-error {
-  position: absolute;
-  left: 56px;
-  bottom: -15px;
+  flex: 1 1 100%;
+  padding-left: 42px;
   font-size: 12px;
   color: var(--error);
 }
@@ -628,6 +633,13 @@ input {
   border-radius: 10px;
   padding: 7px 12px;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.result-list li:hover {
+  background: #F3FBF7;
+  color: #4F8F6E;
 }
 
 /* ---- 弹窗 ---- */
