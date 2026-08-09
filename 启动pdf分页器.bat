@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title 粉色 PDF 分页器
+title PDF分页器
 cd /d "%~dp0"
 
 if not exist node_modules (
@@ -13,6 +13,6 @@ if not exist node_modules (
   )
 )
 
-echo 正在启动粉色 PDF 分页器...
+echo 正在启动 PDF分页器...
 call npm start
 pause

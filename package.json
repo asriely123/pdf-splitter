@@ -1,14 +1,51 @@
 {
   "name": "pink-pdf-splitter",
-  "productName": "粉色PDF分页器",
+  "productName": "PDF分页器",
   "version": "0.1.0",
-  "description": "粉色 PDF 分页器：无水印切割 PDF 的 Windows 桌面小工具",
+  "description": "PDF分页器：无水印切割 PDF 的 Windows 桌面小工具",
+  "author": "PDF分页器",
   "main": "main.js",
   "private": true,
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.local.pdfsplitter",
+    "productName": "PDF分页器",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib/**",
+      "renderer/**",
+      "assets/**"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/qpdf",
+        "to": "vendor/qpdf"
+      }
+    ],
+    "win": {
+      "icon": "assets/icon-256.png",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "PDF分页器.exe"
+    }
   },
   "devDependencies": {
-    "electron": "^43.3.0"
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3"
   }
 }

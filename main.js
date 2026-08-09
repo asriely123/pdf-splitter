@@ -12,7 +12,8 @@ function createWindow() {
     frame: false,
     show: false,
     backgroundColor: '#FFF5F9',
-    title: '粉色 PDF 分页器',
+    title: 'PDF分页器',
+    icon: path.join(__dirname, 'assets', 'icon-256.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

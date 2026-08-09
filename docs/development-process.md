@@ -37,7 +37,7 @@
 - 初始化 `package.json`（type 为 commonjs；安装 electron 与 electron-builder 为 devDependencies）。
 - `main.js`：创建 BrowserWindow，900×680，`frame:false`，`contextIsolation:true`、`nodeIntegration:false`、`sandbox:true`，加载 `renderer/index.html`。
 - `preload.js`：contextBridge 暴露窗口最小化/关闭与文件选择等白名单方法（通道见技术方案）。
-- 最小渲染页面：粉色背景 + 居中「粉色 PDF 分页器」占位文案，标题栏可拖动。
+- 最小渲染页面：粉色背景 + 居中「PDF分页器」占位文案，标题栏可拖动。
 - 完成标准：`npm start` 正常打开窗口；标题栏拖动、最小化、关闭正常；无控制台报错。
 
 ## 5. 阶段 2：静态 UI 与交互

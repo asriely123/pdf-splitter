@@ -97,4 +97,4 @@ qpdf [--password=<密码>] <input.pdf> --pages <input.pdf> <start>-<end> -- <out
 
 - electron-builder `portable` 目标（NSIS 之外的免安装单文件）。
 - `extraResources` 包含 `vendor/qpdf/**`。
-- 应用名「粉色PDF分页器」；产物输出到 `release/`。
+- 应用名「PDF分页器」；产物输出到 `release/`。
