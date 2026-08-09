@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
   <title>粉色 PDF 分页器</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -26,17 +26,97 @@
     </div>
   </header>
 
-  <!-- 主区域（阶段 1 占位，阶段 2 替换为完整界面） -->
-  <main class="placeholder">
-    <svg class="placeholder-icon" viewBox="0 0 64 64" width="72" height="72" aria-hidden="true">
-      <circle cx="32" cy="32" r="28" fill="#FFEAF2"/>
-      <rect x="18" y="17" width="28" height="30" rx="4" fill="#FFFFFF" stroke="#F4A0C0" stroke-width="2"/>
-      <path d="M24 26h16M24 32h16M24 38h10" stroke="#E57CA6" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
-    <h1>粉色 PDF 分页器</h1>
-    <p>应用骨架已就绪，完整界面正在搭建中…</p>
-    <span class="version">v0.1.0 · 阶段 1</span>
+  <main class="content">
+    <!-- 拖拽区 -->
+    <section id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="选择或拖入 PDF 文件">
+      <svg class="drop-icon" viewBox="0 0 64 64" width="56" height="56" aria-hidden="true">
+        <circle cx="32" cy="32" r="28" fill="#FFEAF2"/>
+        <path d="M32 20v18M23 29l9-9 9 9" stroke="#E57CA6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="16" y="38" width="32" height="12" rx="4" fill="#FFFFFF" stroke="#F4A0C0" stroke-width="2"/>
+      </svg>
+      <p class="drop-title">把 PDF 拖到这里</p>
+      <p class="drop-sub">或点击选择文件</p>
+      <div class="drop-hover-tip">松开即可导入</div>
+    </section>
+
+    <!-- 文件信息（导入后显示） -->
+    <section id="file-info" class="file-info hidden">
+      <svg class="file-icon" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+        <rect x="6" y="4" width="20" height="24" rx="4" fill="#FFFFFF" stroke="#F4A0C0" stroke-width="2"/>
+        <path d="M11 11h10M11 16h10M11 21h6" stroke="#E57CA6" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <div class="file-meta">
+        <span id="file-name" class="file-name"></span>
+        <span id="file-pages" class="file-pages"></span>
+      </div>
+      <button id="btn-change-file" class="ghost-btn">更换文件</button>
+      <span id="demo-tag" class="demo-tag hidden">预览模式</span>
+    </section>
+
+    <!-- 分段设置 -->
+    <section class="segment-section">
+      <div class="section-head">
+        <h2>分段设置</h2>
+        <span id="segment-count" class="segment-count">0 / 10 段</span>
+      </div>
+      <div id="segment-list" class="segment-list"></div>
+      <p id="empty-tip" class="empty-tip">导入 PDF 后即可添加分段</p>
+      <button id="btn-add-segment" class="add-btn hidden">＋ 添加一段</button>
+    </section>
+
+    <!-- 输出位置 -->
+    <section class="output-row">
+      <div class="output-info">
+        <span class="label">输出位置</span>
+        <span id="output-dir" class="output-dir">默认：与原 PDF 同目录</span>
+      </div>
+      <button id="btn-choose-output" class="ghost-btn">选择文件夹</button>
+    </section>
+
+    <!-- 操作区 -->
+    <section class="action-row">
+      <button id="btn-split" class="primary-btn" disabled>开始切分</button>
+      <div id="progress-wrap" class="progress-wrap hidden">
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+        </div>
+        <span id="progress-text" class="progress-text">正在切分…</span>
+      </div>
+    </section>
+
+    <!-- 结果卡片 -->
+    <section id="result-card" class="result-card hidden">
+      <div class="result-head">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" fill="#7FBF9D"/>
+          <path d="M7.5 12.5l3 3 6-7" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h3>切分完成</h3>
+      </div>
+      <ul id="result-list" class="result-list"></ul>
+      <button id="btn-open-folder" class="ghost-btn">打开输出文件夹</button>
+    </section>
   </main>
+
+  <!-- 密码弹窗（阶段 3 启用） -->
+  <div id="password-overlay" class="overlay hidden">
+    <div class="modal">
+      <h3>需要密码</h3>
+      <p class="modal-desc">这个 PDF 需要密码才能打开，请输入后继续。</p>
+      <div class="password-field">
+        <input id="password-input" class="modal-input" type="password" placeholder="输入 PDF 密码">
+        <button id="btn-toggle-password" class="eye-btn" title="显示/隐藏密码" aria-label="显示或隐藏密码">◉</button>
+      </div>
+      <p id="password-error" class="modal-error hidden">密码不正确，请重试</p>
+      <div class="modal-actions">
+        <button id="btn-password-cancel" class="ghost-btn">取消</button>
+        <button id="btn-password-ok" class="primary-btn">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 轻提示 -->
+  <div id="toast" class="toast hidden"></div>
 
   <script src="app.js"></script>
 </body>

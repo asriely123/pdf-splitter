@@ -56,5 +56,9 @@ ipcMain.handle('dialog:select-pdf', async (event) => {
   if (result.canceled || result.filePaths.length === 0) {
     return { ok: false, canceled: true };
   }
-  return { ok: true, filePath: result.filePaths[0] };
+  return {
+    ok: true,
+    filePath: result.filePaths[0],
+    fileName: path.basename(result.filePaths[0])
+  };
 });
