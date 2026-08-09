@@ -25,15 +25,23 @@
   - 假切分流程：逐段「处理中→完成 ✓」、粉色渐变进度条、结果卡片与虚拟文件命名。
   - 密码弹窗样式已就位（阶段 3 接入触发）；toast 轻提示组件可用。
   - 修复 CSP 拦截内联样式导致进度条不显示的问题：`style-src` 允许 `'unsafe-inline'`，脚本仍严格限制为 `'self'`。
-  - 实际启动验证通过：窗口正常显示，控制台无报错。
+- 实际启动验证通过：窗口正常显示，控制台无报错。
+- **阶段 3 完成**：接入 qpdf，PDF 信息真实读取。
+  - 下载并固定 qpdf 12.3.2（mingw64），运行文件放入 `vendor/qpdf/`，版本已回填 `docs/technical-design.md`。
+  - 新增 `lib/qpdf.js`（纯 Node 模块）：spawn 异步调用、超时处理、错误分类（`need-password` / `qpdf-failed`）。
+  - 主进程新增 `pdf:inspect` IPC：返回真实文件名与总页数；需要密码时返回 `needPassword`。
+  - preload 新增 `inspect` 与 `getPathForFile`（拖拽文件路径获取）。
+  - 渲染层：导入后真实读取页数（移除「预览模式」）；需要密码时弹出密码框，支持显示/隐藏密码、Enter 提交、错误密码红色抖动提示。
+  - Node 自动化验证通过：普通 PDF 174 页 ✅；受限（禁止复制打印）PDF 免密码读取 ✅；加密 PDF 无密码 → needPassword ✅；正确密码 → 174 页 ✅；错误密码 → needPassword ✅。
+  - 应用启动验证通过：窗口正常，控制台无报错。
 
 ### 进行中
 
-- 无（阶段 2 已验收，等待用户确认后进入阶段 3）。
+- 无（阶段 3 已验收，等待用户确认后进入阶段 4）。
 
 ### 下一步（待办详见 TODO.md）
 
-- 阶段 3：qpdf 集成与 PDF 信息读取（接入真实页数与密码流程）。
+- 阶段 4：切分与输出（qpdf --pages 真实提取、输出目录、命名、进度、打开文件夹）。
 
 ### 关键决策记录
 
@@ -44,3 +52,5 @@
 - 开发分支 `codex/dev` 已创建；阶段 0 的提交保留在 master。
 - CSP 策略：`style-src` 含 `'unsafe-inline'`（Electron 本地应用无远程内容，风险可接受），`script-src` 保持 `'self'` 严格模式。
 - 阶段 2 的 PDF 导入为预览模式（固定演示 120 页，界面有「预览模式」标记），阶段 3 接入真实 qpdf 后移除。
+- qpdf 对「仅 owner 密码（无打开密码）」的受限文件默认可直接读取，无需用户输入密码；对需要打开密码的文件返回 `invalid password`，归类为 `need-password`。
+- PowerShell 调用原生程序会丢弃空字符串参数，测试生成受限 PDF 时改用 Node `spawnSync` 传参。

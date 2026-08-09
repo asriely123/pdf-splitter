@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const { getPageCount } = require('./lib/qpdf');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -61,4 +62,27 @@ ipcMain.handle('dialog:select-pdf', async (event) => {
     filePath: result.filePaths[0],
     fileName: path.basename(result.filePaths[0])
   };
+});
+
+// 读取 PDF 信息（总页数），支持带密码重试
+ipcMain.handle('pdf:inspect', async (event, payload) => {
+  const filePath = payload && payload.filePath;
+  const password = payload && payload.password;
+  if (!filePath || typeof filePath !== 'string') {
+    return { ok: false, error: 'invalid-path' };
+  }
+
+  const result = await getPageCount(filePath, password, {
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath
+  });
+
+  if (result.ok) {
+    return {
+      ok: true,
+      fileName: path.basename(filePath),
+      pageCount: result.pageCount
+    };
+  }
+  return result;
 });

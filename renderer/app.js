@@ -1,12 +1,12 @@
-// 阶段 2：静态 UI 与交互（PDF 读取为演示数据，阶段 3 接入真实 qpdf）
+// 阶段 3：接入 qpdf 真实读取 PDF 信息（切分仍为演示，阶段 4 实现）
 
-const DEMO_TOTAL_PAGES = 120;
 const MAX_SEGMENTS = 10;
 const MIN_SEGMENTS = 1;
 
 const state = {
+  filePath: null,
   fileName: null,
-  totalPages: DEMO_TOTAL_PAGES,
+  totalPages: 0,
   segments: [],
   splitting: false
 };
@@ -16,7 +16,6 @@ const els = {
   fileInfo: document.getElementById('file-info'),
   fileName: document.getElementById('file-name'),
   filePages: document.getElementById('file-pages'),
-  demoTag: document.getElementById('demo-tag'),
   btnChangeFile: document.getElementById('btn-change-file'),
   segmentList: document.getElementById('segment-list'),
   segmentCount: document.getElementById('segment-count'),
@@ -31,7 +30,13 @@ const els = {
   resultCard: document.getElementById('result-card'),
   resultList: document.getElementById('result-list'),
   btnOpenFolder: document.getElementById('btn-open-folder'),
-  toast: document.getElementById('toast')
+  toast: document.getElementById('toast'),
+  passwordOverlay: document.getElementById('password-overlay'),
+  passwordInput: document.getElementById('password-input'),
+  passwordError: document.getElementById('password-error'),
+  btnTogglePassword: document.getElementById('btn-toggle-password'),
+  btnPasswordCancel: document.getElementById('btn-password-cancel'),
+  btnPasswordOk: document.getElementById('btn-password-ok')
 };
 
 let toastTimer = null;
@@ -52,38 +57,119 @@ function makeOutputName(segment, index) {
   return `${baseName(state.fileName)}_第${index}段_第${segment.start}-${segment.end}页.pdf`;
 }
 
-// ---------- 导入 ----------
+// ---------- 导入与读取 ----------
 
-function importFile(fileName) {
+function importFile(filePath, fileName) {
+  state.filePath = filePath;
   state.fileName = fileName;
-  state.segments = [{ id: Date.now(), start: 1, end: state.totalPages }];
+  state.totalPages = 0;
+  state.segments = [];
   state.splitting = false;
 
   els.fileName.textContent = fileName;
-  els.filePages.textContent = `共 ${state.totalPages} 页`;
+  els.filePages.textContent = '正在读取页数…';
   els.fileInfo.classList.remove('hidden');
-  els.demoTag.classList.remove('hidden');
   els.emptyTip.classList.add('hidden');
-  els.btnAddSegment.classList.remove('hidden');
+  els.btnAddSegment.classList.add('hidden');
   els.resultCard.classList.add('hidden');
   els.progressWrap.classList.add('hidden');
-  els.btnSplit.disabled = false;
+  els.btnSplit.disabled = true;
   els.btnSplit.textContent = '开始切分';
 
   renderSegments();
-  toast('已导入 PDF（预览模式）');
+  inspectFile();
+}
+
+async function inspectFile(password) {
+  const result = await window.pdfTool.inspect({
+    filePath: state.filePath,
+    password: password || undefined
+  });
+
+  if (result.ok) {
+    finishImport(result.pageCount);
+    return;
+  }
+  if (result.needPassword) {
+    openPasswordModal();
+    return;
+  }
+  toast('无法读取这个 PDF，请确认文件没有损坏', true);
+  resetFileState();
+}
+
+function finishImport(pageCount) {
+  state.totalPages = pageCount;
+  state.segments = [{ id: Date.now(), start: 1, end: pageCount }];
+  els.filePages.textContent = `共 ${pageCount} 页`;
+  els.btnAddSegment.classList.remove('hidden');
+  els.btnSplit.disabled = false;
+  renderSegments();
+  toast('导入成功');
 }
 
 function resetFileState() {
+  state.filePath = null;
   state.fileName = null;
+  state.totalPages = 0;
   state.segments = [];
   els.fileInfo.classList.add('hidden');
   els.emptyTip.classList.remove('hidden');
   els.btnAddSegment.classList.add('hidden');
   els.btnSplit.disabled = true;
+  els.btnSplit.textContent = '开始切分';
   els.resultCard.classList.add('hidden');
   els.progressWrap.classList.add('hidden');
   renderSegments();
+}
+
+// ---------- 密码弹窗 ----------
+
+function openPasswordModal() {
+  els.passwordInput.value = '';
+  els.passwordError.classList.add('hidden');
+  els.passwordInput.classList.remove('invalid');
+  els.passwordOverlay.classList.remove('hidden');
+  setTimeout(() => els.passwordInput.focus(), 60);
+}
+
+function closePasswordModal() {
+  els.passwordOverlay.classList.add('hidden');
+}
+
+async function submitPassword() {
+  const password = els.passwordInput.value;
+  if (!password) {
+    els.passwordError.textContent = '请输入密码';
+    els.passwordError.classList.remove('hidden');
+    els.passwordInput.classList.add('invalid');
+    els.passwordInput.classList.add('shake');
+    setTimeout(() => els.passwordInput.classList.remove('shake'), 350);
+    return;
+  }
+
+  const result = await window.pdfTool.inspect({
+    filePath: state.filePath,
+    password
+  });
+
+  if (result.ok) {
+    closePasswordModal();
+    finishImport(result.pageCount);
+    return;
+  }
+  if (result.needPassword) {
+    els.passwordError.textContent = '密码不正确，请重试';
+    els.passwordError.classList.remove('hidden');
+    els.passwordInput.classList.add('invalid');
+    els.passwordInput.classList.add('shake');
+    setTimeout(() => els.passwordInput.classList.remove('shake'), 350);
+    els.passwordInput.select();
+    return;
+  }
+  closePasswordModal();
+  toast('无法读取这个 PDF，请确认文件没有损坏', true);
+  resetFileState();
 }
 
 // ---------- 分段渲染 ----------
@@ -152,13 +238,9 @@ function createSegmentCard(segment, index) {
 
   card.append(badge, fields, status, removeBtn, errorEl);
 
-  const readValue = () => ({
-    start: startInput.value.trim(),
-    end: endInput.value.trim()
-  });
-
-  const validate = (showMessage = true) => {
-    const { start, end } = readValue();
+  const validate = () => {
+    const start = startInput.value.trim();
+    const end = endInput.value.trim();
     let message = '';
 
     if (start === '' || end === '') {
@@ -231,7 +313,7 @@ function addSegment() {
   if (startInput) startInput.focus();
 }
 
-// ---------- 校验与切分 ----------
+// ---------- 校验与切分（阶段 4 接入真实切分） ----------
 
 function validateAllSegments() {
   let firstInvalid = null;
@@ -327,7 +409,7 @@ function renderResult() {
 els.dropzone.addEventListener('click', async () => {
   const result = await window.pdfTool.selectPdf();
   if (result.ok) {
-    importFile(result.fileName);
+    importFile(result.filePath, result.fileName);
   }
 });
 
@@ -361,7 +443,12 @@ els.dropzone.addEventListener('drop', (event) => {
     setTimeout(() => els.dropzone.classList.remove('shake'), 350);
     return;
   }
-  importFile(file.name);
+  const filePath = window.pdfTool.getPathForFile(file);
+  if (!filePath) {
+    toast('无法获取文件路径，请点击选择文件', true);
+    return;
+  }
+  importFile(filePath, file.name);
 });
 
 els.btnChangeFile.addEventListener('click', () => {
@@ -390,6 +477,19 @@ els.btnChooseOutput.addEventListener('click', () => {
 
 els.btnOpenFolder.addEventListener('click', () => {
   toast('打开输出文件夹将在阶段 4 接入');
+});
+
+els.btnPasswordOk.addEventListener('click', submitPassword);
+els.btnPasswordCancel.addEventListener('click', () => {
+  closePasswordModal();
+  resetFileState();
+});
+els.passwordInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') submitPassword();
+});
+els.btnTogglePassword.addEventListener('click', () => {
+  const isPassword = els.passwordInput.type === 'password';
+  els.passwordInput.type = isPassword ? 'text' : 'password';
 });
 
 document.getElementById('btn-minimize').addEventListener('click', () => window.pdfTool.minimize());

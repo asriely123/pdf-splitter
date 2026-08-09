@@ -82,9 +82,9 @@ qpdf [--password=<密码>] <input.pdf> --pages <input.pdf> <start>-<end> -- <out
 
 ## 5. 版本锁定
 
-- Electron：阶段 1 安装时的最新稳定版（记录此处）。
-- qpdf：阶段 3 下载后记录版本号与下载地址（此处）。
-- electron-builder：阶段 1 安装时的最新稳定版（记录此处）。
+- Electron：43.3.0（2026-08-09 安装）。
+- qpdf：12.3.2（mingw64），运行文件位于 `vendor/qpdf/`（qpdf.exe + 4 个依赖 DLL）；下载地址：<https://github.com/qpdf/qpdf/releases/download/v12.3.2/qpdf-12.3.2-mingw64.zip>。
+- electron-builder：阶段 6 安装时记录。
 
 ## 6. 输出规则
 

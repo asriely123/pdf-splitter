@@ -241,14 +241,6 @@ input {
   align-self: flex-start;
 }
 
-.demo-tag {
-  font-size: 11px;
-  color: var(--ink-soft);
-  border: 1px dashed var(--pink-accent);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
 /* ---- 通用按钮 ---- */
 .ghost-btn {
   border: 1px solid var(--pink-border);
