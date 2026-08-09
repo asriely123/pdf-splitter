@@ -13,11 +13,12 @@
 
 ## 阶段 1：Electron 应用骨架
 
-- [ ] 初始化 `package.json`（electron、electron-builder 依赖）
-- [ ] 编写主进程 `main.js`：创建 900×680 无边框粉色窗口
-- [ ] 编写 preload 脚本，暴露安全的窗口控制与文件选择通道
-- [ ] 编写最小渲染页面，验证 `npm start` 可打开窗口
-- [ ] 更新 `DEVLOG.md` 与 `TODO.md`，git 提交
+- [x] 初始化 `package.json`（electron 依赖；electron-builder 推迟到阶段 6）
+- [x] 编写主进程 `main.js`：创建 900×680 无边框粉色窗口
+- [x] 编写 preload 脚本，暴露安全的窗口控制与文件选择通道
+- [x] 编写最小渲染页面，验证 `npm start` 可打开窗口
+- [x] 创建 `启动pdf分页器.bat` 并验证
+- [x] 更新 `DEVLOG.md` 与 `TODO.md`，git 提交
 
 ## 阶段 2：静态 UI 与交互
 

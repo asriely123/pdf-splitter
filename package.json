@@ -1,0 +1,14 @@
+{
+  "name": "pink-pdf-splitter",
+  "productName": "粉色PDF分页器",
+  "version": "0.1.0",
+  "description": "粉色 PDF 分页器：无水印切割 PDF 的 Windows 桌面小工具",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^43.3.0"
+  }
+}
