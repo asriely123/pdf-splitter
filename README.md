@@ -23,7 +23,7 @@ pdf分页器/
 ├── README.md                 # 本文件
 ├── main.js                   # Electron 主进程（窗口、IPC、切分调度）
 ├── preload.js                # 渲染进程安全桥接（window.pdfTool）
-├── assets/                   # 应用图标（粉色小书）
+├── assets/                   # 应用图标（淡粉双页分页图案）
 ├── lib/
 │   └── qpdf.js               # qpdf 封装（页数/切分/命名，可独立测试）
 ├── renderer/                 # 界面
