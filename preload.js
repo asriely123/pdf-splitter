@@ -6,5 +6,14 @@ contextBridge.exposeInMainWorld('pdfTool', {
   close: () => ipcRenderer.send('window:close'),
   selectPdf: () => ipcRenderer.invoke('dialog:select-pdf'),
   inspect: (payload) => ipcRenderer.invoke('pdf:inspect', payload),
+  split: (payload) => ipcRenderer.invoke('pdf:split', payload),
+  chooseOutput: () => ipcRenderer.invoke('dialog:choose-output'),
+  openFolder: (dir) => ipcRenderer.invoke('shell:open-folder', dir),
+  openPath: (target) => ipcRenderer.invoke('shell:open-path', target),
+  onSplitProgress: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('pdf:split-progress', listener);
+    return () => ipcRenderer.removeListener('pdf:split-progress', listener);
+  },
   getPathForFile: (file) => webUtils.getPathForFile(file)
 });

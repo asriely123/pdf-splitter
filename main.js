@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const fs = require('fs');
 const path = require('path');
-const { getPageCount } = require('./lib/qpdf');
+const { getPageCount, extractPages, sanitizeFileName, uniqueOutputPath } = require('./lib/qpdf');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -85,4 +86,114 @@ ipcMain.handle('pdf:inspect', async (event, payload) => {
     };
   }
   return result;
+});
+
+// 按分段切分 PDF，逐段发送进度事件
+ipcMain.handle('pdf:split', async (event, payload) => {
+  const { filePath, password, outputDir, segments } = payload || {};
+  if (!filePath || typeof filePath !== 'string' || !Array.isArray(segments) || segments.length === 0) {
+    return { ok: false, error: '参数不正确，请重新导入 PDF' };
+  }
+
+  const sender = event.sender;
+  const qpdfOptions = {
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath
+  };
+
+  const ext = path.extname(filePath);
+  const baseName = sanitizeFileName(path.basename(filePath, ext));
+  const dir = outputDir || path.join(path.dirname(filePath), `${baseName}_分页结果`);
+
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    return { ok: false, error: `无法创建输出文件夹：${err.message}` };
+  }
+
+  const files = [];
+  for (let i = 0; i < segments.length; i += 1) {
+    const seg = segments[i];
+    const start = Number(seg && seg.start);
+    const end = Number(seg && seg.end);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start) {
+      sender.send('pdf:split-progress', {
+        index: i,
+        total: segments.length,
+        status: 'error',
+        label: `第 ${i + 1} 段`
+      });
+      return { ok: false, error: `第 ${i + 1} 段页码范围不正确`, index: i };
+    }
+
+    const outBase = sanitizeFileName(`${baseName}_第${i + 1}段_第${start}-${end}页`);
+    const outPath = uniqueOutputPath(dir, outBase, '.pdf');
+
+    sender.send('pdf:split-progress', {
+      index: i,
+      total: segments.length,
+      status: 'processing',
+      label: path.basename(outPath)
+    });
+
+    const result = await extractPages({
+      inputPath: filePath,
+      outputPath: outPath,
+      startPage: start,
+      endPage: end,
+      password,
+      qpdfOptions
+    });
+
+    if (!result.ok) {
+      sender.send('pdf:split-progress', {
+        index: i,
+        total: segments.length,
+        status: 'error',
+        label: path.basename(outPath)
+      });
+      return {
+        ok: false,
+        error: result.needPassword ? '密码不正确，无法切分' : `第 ${i + 1} 段切分失败`,
+        index: i,
+        needPassword: result.needPassword
+      };
+    }
+
+    sender.send('pdf:split-progress', {
+      index: i,
+      total: segments.length,
+      status: 'done',
+      label: path.basename(outPath)
+    });
+    files.push({ path: outPath, label: path.basename(outPath) });
+  }
+
+  return { ok: true, files, outputDir: dir };
+});
+
+// 选择输出文件夹
+ipcMain.handle('dialog:choose-output', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const result = await dialog.showOpenDialog(win, {
+    title: '选择输出文件夹',
+    properties: ['openDirectory', 'createDirectory']
+  });
+  if (result.canceled || result.filePaths.length === 0) {
+    return { ok: false, canceled: true };
+  }
+  return { ok: true, dir: result.filePaths[0] };
+});
+
+// 在资源管理器中打开文件夹 / 文件
+ipcMain.handle('shell:open-folder', async (event, dir) => {
+  if (!dir || typeof dir !== 'string') return { ok: false, error: '路径无效' };
+  const error = await shell.openPath(dir);
+  return { ok: !error, error: error || undefined };
+});
+
+ipcMain.handle('shell:open-path', async (event, target) => {
+  if (!target || typeof target !== 'string') return { ok: false, error: '路径无效' };
+  const error = await shell.openPath(target);
+  return { ok: !error, error: error || undefined };
 });

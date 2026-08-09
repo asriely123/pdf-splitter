@@ -1,4 +1,4 @@
-// 阶段 3：接入 qpdf 真实读取 PDF 信息（切分仍为演示，阶段 4 实现）
+// 阶段 4：真实切分输出（qpdf --pages）
 
 const MAX_SEGMENTS = 10;
 const MIN_SEGMENTS = 1;
@@ -7,6 +7,8 @@ const state = {
   filePath: null,
   fileName: null,
   totalPages: 0,
+  password: null,
+  outputDir: null,
   segments: [],
   splitting: false
 };
@@ -40,6 +42,7 @@ const els = {
 };
 
 let toastTimer = null;
+let splitCards = [];
 
 function toast(message, isError = false) {
   els.toast.textContent = message;
@@ -49,20 +52,14 @@ function toast(message, isError = false) {
   toastTimer = setTimeout(() => els.toast.classList.add('hidden'), 2500);
 }
 
-function baseName(fileName) {
-  return fileName.replace(/\.pdf$/i, '');
-}
-
-function makeOutputName(segment, index) {
-  return `${baseName(state.fileName)}_第${index}段_第${segment.start}-${segment.end}页.pdf`;
-}
-
 // ---------- 导入与读取 ----------
 
 function importFile(filePath, fileName) {
   state.filePath = filePath;
   state.fileName = fileName;
   state.totalPages = 0;
+  state.password = null;
+  state.outputDir = null;
   state.segments = [];
   state.splitting = false;
 
@@ -75,6 +72,7 @@ function importFile(filePath, fileName) {
   els.progressWrap.classList.add('hidden');
   els.btnSplit.disabled = true;
   els.btnSplit.textContent = '开始切分';
+  els.outputDir.textContent = '默认：与原 PDF 同目录';
 
   renderSegments();
   inspectFile();
@@ -87,6 +85,7 @@ async function inspectFile(password) {
   });
 
   if (result.ok) {
+    state.password = password || state.password;
     finishImport(result.pageCount);
     return;
   }
@@ -112,6 +111,8 @@ function resetFileState() {
   state.filePath = null;
   state.fileName = null;
   state.totalPages = 0;
+  state.password = null;
+  state.outputDir = null;
   state.segments = [];
   els.fileInfo.classList.add('hidden');
   els.emptyTip.classList.remove('hidden');
@@ -120,6 +121,7 @@ function resetFileState() {
   els.btnSplit.textContent = '开始切分';
   els.resultCard.classList.add('hidden');
   els.progressWrap.classList.add('hidden');
+  els.outputDir.textContent = '默认：与原 PDF 同目录';
   renderSegments();
 }
 
@@ -140,11 +142,7 @@ function closePasswordModal() {
 async function submitPassword() {
   const password = els.passwordInput.value;
   if (!password) {
-    els.passwordError.textContent = '请输入密码';
-    els.passwordError.classList.remove('hidden');
-    els.passwordInput.classList.add('invalid');
-    els.passwordInput.classList.add('shake');
-    setTimeout(() => els.passwordInput.classList.remove('shake'), 350);
+    showPasswordError('请输入密码');
     return;
   }
 
@@ -154,22 +152,27 @@ async function submitPassword() {
   });
 
   if (result.ok) {
+    state.password = password;
     closePasswordModal();
     finishImport(result.pageCount);
     return;
   }
   if (result.needPassword) {
-    els.passwordError.textContent = '密码不正确，请重试';
-    els.passwordError.classList.remove('hidden');
-    els.passwordInput.classList.add('invalid');
-    els.passwordInput.classList.add('shake');
-    setTimeout(() => els.passwordInput.classList.remove('shake'), 350);
+    showPasswordError('密码不正确，请重试');
     els.passwordInput.select();
     return;
   }
   closePasswordModal();
   toast('无法读取这个 PDF，请确认文件没有损坏', true);
   resetFileState();
+}
+
+function showPasswordError(message) {
+  els.passwordError.textContent = message;
+  els.passwordError.classList.remove('hidden');
+  els.passwordInput.classList.add('invalid');
+  els.passwordInput.classList.add('shake');
+  setTimeout(() => els.passwordInput.classList.remove('shake'), 350);
 }
 
 // ---------- 分段渲染 ----------
@@ -313,7 +316,7 @@ function addSegment() {
   if (startInput) startInput.focus();
 }
 
-// ---------- 校验与切分（阶段 4 接入真实切分） ----------
+// ---------- 校验 ----------
 
 function validateAllSegments() {
   let firstInvalid = null;
@@ -351,11 +354,16 @@ function validateAllSegments() {
   return firstInvalid;
 }
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function collectSegmentsFromDom() {
+  return [...document.querySelectorAll('.segment-card')].map((card) => ({
+    start: Number(card.querySelector('.start-input').value.trim()),
+    end: Number(card.querySelector('.end-input').value.trim())
+  }));
 }
 
-async function runFakeSplit() {
+// ---------- 切分 ----------
+
+async function runRealSplit() {
   state.splitting = true;
   els.btnSplit.disabled = true;
   els.btnSplit.textContent = '正在切分…';
@@ -363,41 +371,69 @@ async function runFakeSplit() {
   els.progressWrap.classList.remove('hidden');
   els.resultCard.classList.add('hidden');
   els.progressBar.style.width = '0%';
+  els.progressText.textContent = '准备中…';
 
-  const cards = [...document.querySelectorAll('.segment-card')];
-  const total = cards.length;
-
-  for (let i = 0; i < total; i++) {
-    const card = cards[i];
+  splitCards = [...document.querySelectorAll('.segment-card')];
+  splitCards.forEach((card) => {
     const status = card.querySelector('.segment-status');
+    status.classList.remove('processing', 'done', 'error');
+    status.textContent = '等待中';
+  });
 
-    status.classList.remove('done');
+  const result = await window.pdfTool.split({
+    filePath: state.filePath,
+    password: state.password || undefined,
+    outputDir: state.outputDir || undefined,
+    segments: collectSegmentsFromDom()
+  });
+
+  state.splitting = false;
+  els.btnAddSegment.disabled = false;
+  els.btnSplit.disabled = false;
+
+  if (result.ok) {
+    state.outputDir = result.outputDir;
+    els.outputDir.textContent = result.outputDir;
+    els.progressText.textContent = '全部完成';
+    els.btnSplit.textContent = '再次切分';
+    renderResult(result.files, result.outputDir);
+  } else {
+    els.progressText.textContent = '切分失败';
+    els.btnSplit.textContent = '再次尝试';
+    toast(result.error || '切分失败，请重试', true);
+  }
+}
+
+function handleSplitProgress(payload) {
+  const card = splitCards[payload.index];
+  if (!card) return;
+  const status = card.querySelector('.segment-status');
+
+  if (payload.status === 'processing') {
     status.classList.add('processing');
     status.textContent = '处理中…';
-    els.progressText.textContent = `正在切分第 ${i + 1}/${total} 段…`;
-    await delay(700);
-
+    els.progressText.textContent = `正在切分第 ${payload.index + 1}/${payload.total} 段…`;
+  } else if (payload.status === 'done') {
     status.classList.remove('processing');
     status.classList.add('done');
     status.textContent = '完成 ✓';
-    els.progressBar.style.width = `${Math.round(((i + 1) / total) * 100)}%`;
-    await delay(250);
+    els.progressBar.style.width = `${Math.round(((payload.index + 1) / payload.total) * 100)}%`;
+  } else if (payload.status === 'error') {
+    status.classList.remove('processing');
+    status.classList.add('error');
+    status.textContent = '失败';
   }
-
-  els.progressText.textContent = '全部完成';
-  state.splitting = false;
-  els.btnSplit.disabled = false;
-  els.btnSplit.textContent = '再次切分';
-  els.btnAddSegment.disabled = false;
-
-  renderResult();
 }
 
-function renderResult() {
+function renderResult(files, outputDir) {
   els.resultList.innerHTML = '';
-  state.segments.forEach((segment, index) => {
+  files.forEach((file) => {
     const li = document.createElement('li');
-    li.textContent = makeOutputName(segment, index + 1);
+    li.textContent = file.label;
+    li.title = `点击打开：${file.path}`;
+    li.addEventListener('click', () => {
+      window.pdfTool.openPath(file.path);
+    });
     els.resultList.appendChild(li);
   });
   els.resultCard.classList.remove('hidden');
@@ -468,15 +504,22 @@ els.btnSplit.addEventListener('click', () => {
     toast('有分段填写不正确，请检查红色提示', true);
     return;
   }
-  runFakeSplit();
+  runRealSplit();
 });
 
-els.btnChooseOutput.addEventListener('click', () => {
-  toast('自定义输出目录将在阶段 4 接入');
+els.btnChooseOutput.addEventListener('click', async () => {
+  const result = await window.pdfTool.chooseOutput();
+  if (result.ok) {
+    state.outputDir = result.dir;
+    els.outputDir.textContent = result.dir;
+    toast('已选择输出文件夹');
+  }
 });
 
-els.btnOpenFolder.addEventListener('click', () => {
-  toast('打开输出文件夹将在阶段 4 接入');
+els.btnOpenFolder.addEventListener('click', async () => {
+  if (!state.outputDir) return;
+  const result = await window.pdfTool.openFolder(state.outputDir);
+  if (!result.ok) toast('打开文件夹失败', true);
 });
 
 els.btnPasswordOk.addEventListener('click', submitPassword);
@@ -491,6 +534,8 @@ els.btnTogglePassword.addEventListener('click', () => {
   const isPassword = els.passwordInput.type === 'password';
   els.passwordInput.type = isPassword ? 'text' : 'password';
 });
+
+window.pdfTool.onSplitProgress(handleSplitProgress);
 
 document.getElementById('btn-minimize').addEventListener('click', () => window.pdfTool.minimize());
 document.getElementById('btn-close').addEventListener('click', () => window.pdfTool.close());
