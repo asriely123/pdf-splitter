@@ -85,7 +85,11 @@ ipcMain.handle('pdf:inspect', async (event, payload) => {
       pageCount: result.pageCount
     };
   }
-  return result;
+  return {
+    ok: false,
+    needPassword: result.needPassword,
+    error: friendlyQpdfError(result)
+  };
 });
 
 // 按分段切分 PDF，逐段发送进度事件
@@ -102,7 +106,7 @@ ipcMain.handle('pdf:split', async (event, payload) => {
   };
 
   const ext = path.extname(filePath);
-  const baseName = sanitizeFileName(path.basename(filePath, ext));
+  const baseName = (sanitizeFileName(path.basename(filePath, ext)) || '未命名').slice(0, 60);
   const dir = outputDir || path.join(path.dirname(filePath), `${baseName}_分页结果`);
 
   try {
@@ -154,7 +158,7 @@ ipcMain.handle('pdf:split', async (event, payload) => {
       });
       return {
         ok: false,
-        error: result.needPassword ? '密码不正确，无法切分' : `第 ${i + 1} 段切分失败`,
+        error: result.needPassword ? '密码不正确，无法切分' : `第 ${i + 1} 段切分失败：${friendlyQpdfError(result)}`,
         index: i,
         needPassword: result.needPassword
       };
@@ -197,3 +201,18 @@ ipcMain.handle('shell:open-path', async (event, target) => {
   const error = await shell.openPath(target);
   return { ok: !error, error: error || undefined };
 });
+
+function friendlyQpdfError(result) {
+  switch (result.error) {
+    case 'no-permission':
+      return '没有写入权限，请换个文件夹试试';
+    case 'file-in-use':
+      return '文件正被其他程序占用，请关闭相关程序后重试';
+    case 'corrupt-pdf':
+      return '文件已损坏或不是有效的 PDF';
+    case 'parse-error':
+      return '文件内容异常，无法处理';
+    default:
+      return '文件可能已损坏';
+  }
+}

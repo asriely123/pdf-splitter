@@ -13,7 +13,7 @@
 
 ## 当前状态
 
-🚧 项目开发中。当前处于 **阶段 0：项目骨架与文档**，应用本体尚未开始实现。
+🚧 项目开发中。已完成阶段 0–4：文档体系、应用骨架、完整界面、qpdf 接入与真实切分输出；当前处于 **阶段 5：打磨与边界处理**。
 
 ## 项目结构
 
@@ -21,27 +21,34 @@
 pdf分页器/
 ├── AGENTS.md                 # 工作指引（接手者必读）
 ├── README.md                 # 本文件
+├── main.js                   # Electron 主进程（窗口、IPC、切分调度）
+├── preload.js                # 渲染进程安全桥接（window.pdfTool）
+├── lib/
+│   └── qpdf.js               # qpdf 封装（页数/切分/命名，可独立测试）
+├── renderer/                 # 界面
+│   ├── index.html            # 页面结构
+│   ├── style.css             # 粉色设计系统与动效
+│   └── app.js                # 界面交互逻辑
+├── vendor/
+│   └── qpdf/                 # PDF 引擎（qpdf 12.3.2，打包内置）
 ├── docs/                     # 开发标准文档
 │   ├── requirements.md       # 需求说明与验收标准
 │   ├── technical-design.md   # 技术方案
 │   ├── ui-design-spec.md     # UI 设计规范
 │   ├── development-process.md# 开发流程与执行步骤
 │   └── testing-acceptance.md # 测试与验收规范
-└── devlog/                   # 开发日志与待办
-    ├── DEVLOG.md             # 按日期记录完成事项
-    └── TODO.md               # 待办清单
+├── devlog/                   # 开发日志与待办
+│   ├── DEVLOG.md             # 按日期记录完成事项
+│   └── TODO.md               # 待办清单
+└── 启动pdf分页器.bat          # 双击启动（开发模式）
 ```
 
-> 应用代码（`package.json`、`main.js`、`renderer/` 等）将在阶段 1 起逐步加入，届时本结构会同步更新。
-
-## 给开发者的快速开始（当前尚未生效）
-
-待阶段 1 初始化 Electron 项目后，本小节会补充：
+## 给开发者的快速开始
 
 ```bash
-npm install
-npm start          # 开发模式运行
-npm run dist       # 打包便携式单文件 exe
+npm install        # 安装依赖（首次）
+npm start          # 开发模式运行（或双击 启动pdf分页器.bat）
+npm run dist       # 打包便携式单文件 exe（阶段 6 提供）
 ```
 
 ## 给使用者的说明

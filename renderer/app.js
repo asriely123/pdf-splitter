@@ -361,16 +361,26 @@ function collectSegmentsFromDom() {
   }));
 }
 
+function setSplittingUi(splitting) {
+  els.btnChangeFile.disabled = splitting;
+  els.btnChooseOutput.disabled = splitting;
+  els.btnAddSegment.disabled = splitting;
+  document.querySelectorAll('.segment-card').forEach((card) => {
+    card.classList.toggle('splitting', splitting);
+  });
+}
+
 // ---------- 切分 ----------
 
 async function runRealSplit() {
   state.splitting = true;
   els.btnSplit.disabled = true;
   els.btnSplit.textContent = '正在切分…';
-  els.btnAddSegment.disabled = true;
+  setSplittingUi(true);
   els.progressWrap.classList.remove('hidden');
   els.resultCard.classList.add('hidden');
   els.progressBar.style.width = '0%';
+  els.progressBar.classList.remove('error');
   els.progressText.textContent = '准备中…';
 
   splitCards = [...document.querySelectorAll('.segment-card')];
@@ -388,7 +398,7 @@ async function runRealSplit() {
   });
 
   state.splitting = false;
-  els.btnAddSegment.disabled = false;
+  setSplittingUi(false);
   els.btnSplit.disabled = false;
 
   if (result.ok) {
@@ -410,6 +420,7 @@ function handleSplitProgress(payload) {
   const status = card.querySelector('.segment-status');
 
   if (payload.status === 'processing') {
+    els.progressBar.classList.remove('error');
     status.classList.add('processing');
     status.textContent = '处理中…';
     els.progressText.textContent = `正在切分第 ${payload.index + 1}/${payload.total} 段…`;
@@ -422,6 +433,7 @@ function handleSplitProgress(payload) {
     status.classList.remove('processing');
     status.classList.add('error');
     status.textContent = '失败';
+    els.progressBar.classList.add('error');
   }
 }
 

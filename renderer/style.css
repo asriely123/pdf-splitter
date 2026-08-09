@@ -352,6 +352,11 @@ input {
   transition: all 0.2s ease;
 }
 
+.segment-card.splitting {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
 .segment-badge {
   flex: 0 0 auto;
   width: 30px;
@@ -370,6 +375,7 @@ input {
   flex: 1;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
 }
@@ -588,6 +594,10 @@ input {
   transition: width 0.4s ease;
 }
 
+.progress-bar.error {
+  background: linear-gradient(90deg, var(--pink-accent), var(--error));
+}
+
 .progress-text {
   font-size: 12px;
   color: var(--ink-soft);
@@ -640,6 +650,15 @@ input {
 .result-list li:hover {
   background: #F3FBF7;
   color: #4F8F6E;
+}
+
+.result-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.result-list::-webkit-scrollbar-thumb {
+  background: #CBE8D8;
+  border-radius: 999px;
 }
 
 /* ---- 弹窗 ---- */
@@ -701,6 +720,10 @@ input {
 
 .modal-input.invalid {
   border-color: var(--error);
+}
+
+.modal-input.shake {
+  animation: shake 0.3s ease;
 }
 
 .eye-btn {
