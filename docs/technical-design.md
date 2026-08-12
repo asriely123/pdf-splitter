@@ -39,7 +39,7 @@ preload.js（contextIsolation 开启）
 | 通道 | 方向 | 参数 | 返回 |
 | --- | --- | --- | --- |
 | `pdf:inspect` | 渲染→主 | `{ filePath, password? }` | `{ ok, fileName, pageCount }` 或 `{ ok:false, error, needPassword? }` |
-| `pdf:split` | 渲染→主 | `{ filePath, password?, outputDir?, segments: [{start,end}] }` | 先发 `pdf:split-progress` 事件，最后返回 `{ ok, files:[{path,label}] }` |
+| `pdf:split` | 渲染→主 | `{ filePath, password?, outputDir?, segments: [{start,end,name?}] }` | 先发 `pdf:split-progress` 事件，最后返回 `{ ok, files:[{path,label}] }` |
 | `pdf:split-progress` | 主→渲染 | 事件 | `{ index, total, label, status }`（`processing`/`done`/`error`） |
 | `dialog:choose-output` | 渲染→主 | 无 | `{ ok, dir }` 或 `{ ok:false, canceled:true }` |
 | `shell:open-folder` | 渲染→主 | `{ dir }` | `{ ok }` |
@@ -89,9 +89,11 @@ qpdf [--password=<密码>] <input.pdf> --pages <input.pdf> <start>-<end> -- <out
 ## 6. 输出规则
 
 - 输出目录默认：原 PDF 同目录 `原文件名_分页结果/`。
-- 文件名：`原文件名_第N段_第X-Y页.pdf`。
-- 重名时追加序号：`原文件名_第N段_第X-Y页_2.pdf`（从 2 开始）。
-- 非法文件名中的字符（`\ / : * ? " < > |`）在输出文件名中统一替换为 `_`；原文件路径本身不修改。
+- 分段 `name` 为空时，文件名为 `原文件名_第N段_第X-Y页.pdf`。
+- 分段 `name` 有值时，以该名称为文件名；用户是否输入 `.pdf` 均只保留一个扩展名。
+- 重名时追加序号：`文件名_2.pdf`（从 2 开始）。
+- 非法文件名字符（控制字符及 `\ / : * ? " < > |`）统一替换为 `_`；清理尾部空格、句点并避开 Windows 保留设备名；原文件路径本身不修改。
+- 自定义名称最多保留 100 个字符；默认原文件基础名最多保留 60 个字符。
 
 ## 7. 打包配置要点（阶段 6 细化）
 
