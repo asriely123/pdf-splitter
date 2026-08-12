@@ -1,7 +1,13 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { getPageCount, extractPages, sanitizeFileName, uniqueOutputPath } = require('./lib/qpdf');
+const {
+  getPageCount,
+  extractPages,
+  sanitizeFileName,
+  buildOutputBaseName,
+  uniqueOutputPath
+} = require('./lib/qpdf');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -131,7 +137,8 @@ ipcMain.handle('pdf:split', async (event, payload) => {
       return { ok: false, error: `第 ${i + 1} 段页码范围不正确`, index: i };
     }
 
-    const outBase = sanitizeFileName(`${baseName}_第${i + 1}段_第${start}-${end}页`);
+    const defaultOutBase = `${baseName}_第${i + 1}段_第${start}-${end}页`;
+    const outBase = buildOutputBaseName(seg && seg.name, defaultOutBase);
     const outPath = uniqueOutputPath(dir, outBase, '.pdf');
 
     sender.send('pdf:split-progress', {

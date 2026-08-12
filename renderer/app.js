@@ -99,7 +99,7 @@ async function inspectFile(password) {
 
 function finishImport(pageCount) {
   state.totalPages = pageCount;
-  state.segments = [{ id: Date.now(), start: 1, end: pageCount }];
+  state.segments = [{ id: Date.now(), start: 1, end: pageCount, name: '' }];
   els.filePages.textContent = `共 ${pageCount} 页`;
   els.btnAddSegment.classList.remove('hidden');
   els.btnSplit.disabled = false;
@@ -129,8 +129,14 @@ function resetFileState() {
 
 function openPasswordModal() {
   els.passwordInput.value = '';
+  els.passwordInput.type = 'password';
   els.passwordError.classList.add('hidden');
   els.passwordInput.classList.remove('invalid');
+  els.btnTogglePassword.setAttribute('aria-pressed', 'false');
+  els.btnTogglePassword.setAttribute('aria-label', '显示密码');
+  els.btnTogglePassword.title = '显示密码';
+  els.btnTogglePassword.querySelector('.eye-show').classList.remove('hidden');
+  els.btnTogglePassword.querySelector('.eye-hide').classList.add('hidden');
   els.passwordOverlay.classList.remove('hidden');
   setTimeout(() => els.passwordInput.focus(), 60);
 }
@@ -194,6 +200,12 @@ function createSegmentCard(segment, index) {
   badge.className = 'segment-badge';
   badge.textContent = index + 1;
 
+  const content = document.createElement('div');
+  content.className = 'segment-content';
+
+  const mainRow = document.createElement('div');
+  mainRow.className = 'segment-main-row';
+
   const fields = document.createElement('div');
   fields.className = 'segment-fields';
 
@@ -234,12 +246,46 @@ function createSegmentCard(segment, index) {
   const removeBtn = document.createElement('button');
   removeBtn.className = 'remove-btn';
   removeBtn.title = '删除这一段';
-  removeBtn.textContent = '✕';
+  removeBtn.setAttribute('aria-label', `删除第 ${index + 1} 段`);
+  removeBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+
+  const nameField = document.createElement('div');
+  nameField.className = 'segment-name-field';
+
+  const nameLabel = document.createElement('label');
+  nameLabel.className = 'segment-name-label';
+  nameLabel.textContent = '文件名（可选）';
+
+  const nameControl = document.createElement('div');
+  nameControl.className = 'segment-name-control';
+
+  const nameInput = document.createElement('input');
+  nameInput.id = `segment-name-${segment.id}`;
+  nameInput.type = 'text';
+  nameInput.className = 'segment-name-input';
+  nameInput.value = segment.name || '';
+  nameInput.placeholder = '留空则使用默认名称';
+  nameInput.maxLength = 100;
+  nameInput.autocomplete = 'off';
+  nameInput.spellcheck = false;
+  nameLabel.htmlFor = nameInput.id;
+
+  const nameSuffix = document.createElement('span');
+  nameSuffix.className = 'segment-name-suffix';
+  nameSuffix.textContent = '.pdf';
+
+  nameControl.append(nameInput, nameSuffix);
+  nameField.append(nameLabel, nameControl);
 
   const errorEl = document.createElement('p');
   errorEl.className = 'input-error hidden';
 
-  card.append(badge, fields, status, removeBtn, errorEl);
+  mainRow.append(fields, status, removeBtn);
+  content.append(mainRow, nameField, errorEl);
+  card.append(badge, content);
 
   const validate = () => {
     const start = startInput.value.trim();
@@ -267,10 +313,24 @@ function createSegmentCard(segment, index) {
   };
 
   startInput.addEventListener('input', () => {
+    segment.start = startInput.value;
     if (startInput.classList.contains('invalid')) validate();
   });
   endInput.addEventListener('input', () => {
+    segment.end = endInput.value;
     if (endInput.classList.contains('invalid')) validate();
+  });
+  nameInput.addEventListener('input', () => {
+    segment.name = nameInput.value;
+  });
+  nameInput.addEventListener('blur', () => {
+    const normalizedName = nameInput.value
+      .trim()
+      .replace(/[. ]+$/g, '')
+      .replace(/(?:\.pdf)+$/i, '')
+      .trim();
+    nameInput.value = normalizedName;
+    segment.name = normalizedName;
   });
   startInput.addEventListener('blur', () => validate());
   endInput.addEventListener('blur', () => validate());
@@ -299,14 +359,17 @@ function updateSegmentMeta() {
 }
 
 function renumberBadges() {
-  document.querySelectorAll('.segment-badge').forEach((badge, index) => {
+  document.querySelectorAll('.segment-card').forEach((card, index) => {
+    const badge = card.querySelector('.segment-badge');
+    const removeBtn = card.querySelector('.remove-btn');
     badge.textContent = index + 1;
+    removeBtn.setAttribute('aria-label', `删除第 ${index + 1} 段`);
   });
 }
 
 function addSegment() {
   if (state.segments.length >= MAX_SEGMENTS || !state.fileName) return;
-  const segment = { id: Date.now(), start: '', end: '' };
+  const segment = { id: Date.now(), start: '', end: '', name: '' };
   state.segments.push(segment);
   const card = createSegmentCard(segment, state.segments.length - 1);
   els.segmentList.appendChild(card);
@@ -357,7 +420,12 @@ function validateAllSegments() {
 function collectSegmentsFromDom() {
   return [...document.querySelectorAll('.segment-card')].map((card) => ({
     start: Number(card.querySelector('.start-input').value.trim()),
-    end: Number(card.querySelector('.end-input').value.trim())
+    end: Number(card.querySelector('.end-input').value.trim()),
+    name: card.querySelector('.segment-name-input').value
+      .trim()
+      .replace(/[. ]+$/g, '')
+      .replace(/(?:\.pdf)+$/i, '')
+      .trim()
   }));
 }
 
@@ -441,11 +509,27 @@ function renderResult(files, outputDir) {
   els.resultList.innerHTML = '';
   files.forEach((file) => {
     const li = document.createElement('li');
-    li.textContent = file.label;
-    li.title = `点击打开：${file.path}`;
-    li.addEventListener('click', () => {
-      window.pdfTool.openPath(file.path);
+    li.className = 'result-item';
+    li.title = file.path;
+
+    const fileName = document.createElement('span');
+    fileName.className = 'result-file-name';
+    fileName.textContent = file.label;
+
+    const openButton = document.createElement('button');
+    openButton.className = 'result-open-btn';
+    openButton.title = `打开 ${file.label}`;
+    openButton.innerHTML = `
+      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+        <path d="M14 5h5v5M19 5l-8 8M18 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>打开</span>`;
+    openButton.addEventListener('click', async () => {
+      const result = await window.pdfTool.openPath(file.path);
+      if (!result.ok) toast('打开文件失败', true);
     });
+
+    li.append(fileName, openButton);
     els.resultList.appendChild(li);
   });
   els.resultCard.classList.remove('hidden');
@@ -545,6 +629,11 @@ els.passwordInput.addEventListener('keydown', (event) => {
 els.btnTogglePassword.addEventListener('click', () => {
   const isPassword = els.passwordInput.type === 'password';
   els.passwordInput.type = isPassword ? 'text' : 'password';
+  els.btnTogglePassword.setAttribute('aria-pressed', String(isPassword));
+  els.btnTogglePassword.setAttribute('aria-label', isPassword ? '隐藏密码' : '显示密码');
+  els.btnTogglePassword.title = isPassword ? '隐藏密码' : '显示密码';
+  els.btnTogglePassword.querySelector('.eye-show').classList.toggle('hidden', isPassword);
+  els.btnTogglePassword.querySelector('.eye-hide').classList.toggle('hidden', !isPassword);
 });
 
 window.pdfTool.onSplitProgress(handleSplitProgress);

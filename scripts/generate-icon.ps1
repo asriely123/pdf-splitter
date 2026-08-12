@@ -1,111 +1,86 @@
-# 生成 PDF分页器 应用图标：多尺寸 PNG + 单文件 ICO
+# 从高分辨率母版生成 PDF分页器 的多尺寸 PNG 与 ICO
 # 用法：powershell -ExecutionPolicy Bypass -File scripts\generate-icon.ps1
 
 Add-Type -AssemblyName System.Drawing
+$ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $assetDir = Join-Path $root 'assets'
-New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
-
+$sourcePath = Join-Path $assetDir 'icon-master.png'
 $sizes = @(16, 24, 32, 48, 64, 128, 256)
+
+if (-not (Test-Path -LiteralPath $sourcePath)) {
+    throw "找不到图标母版：$sourcePath"
+}
+
+New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
+$source = [System.Drawing.Bitmap]::FromFile($sourcePath)
 $pngBytes = @()
 
-function Fill-RoundedRect($g, $brush, $x, $y, $w, $h, $r) {
-    $d = $r * 2
-    $g.FillRectangle($brush, $x, $y + $r, $w, $h - $d)
-    $g.FillRectangle($brush, $x + $r, $y, $w - $d, $h)
-    $g.FillEllipse($brush, $x, $y, $d, $d)
-    $g.FillEllipse($brush, $x + $w - $d, $y, $d, $d)
-    $g.FillEllipse($brush, $x, $y + $h - $d, $d, $d)
-    $g.FillEllipse($brush, $x + $w - $d, $y + $h - $d, $d, $d)
-}
+try {
+    foreach ($size in $sizes) {
+        $bitmap = New-Object System.Drawing.Bitmap($size, $size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
 
-foreach ($s in $sizes) {
-    $bmp = New-Object System.Drawing.Bitmap($s, $s)
-    $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $g.Clear([System.Drawing.Color]::Transparent)
+        try {
+            $graphics.Clear([System.Drawing.Color]::Transparent)
+            $graphics.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceOver
+            $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+            $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+            $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+            $graphics.DrawImage($source, 0, 0, $size, $size)
 
-    # 粉色圆角方块背景
-    $radius = [Math]::Max(2, [Math]::Round($s * 0.22))
-    $bgBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 245, 168, 198))
-    Fill-RoundedRect $g $bgBrush 0 0 $s $s $radius
+            $memory = New-Object System.IO.MemoryStream
+            try {
+                $bitmap.Save($memory, [System.Drawing.Imaging.ImageFormat]::Png)
+                $pngBytes += , $memory.ToArray()
+            }
+            finally {
+                $memory.Dispose()
+            }
 
-    # 白色书本
-    $bx = $s * 0.21
-    $by = $s * 0.21
-    $bw = $s * 0.58
-    $bh = $s * 0.58
-    $bookRadius = [Math]::Max(1, [Math]::Round($s * 0.08))
-    Fill-RoundedRect $g ([System.Drawing.Brushes]::White) $bx $by $bw $bh $bookRadius
-
-    # 中间书脊（分页线）
-    $penWidth = [Math]::Max(1, [Math]::Round($s * 0.05))
-    $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 239, 143, 187), $penWidth)
-    $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $cx = $s * 0.5
-    $g.DrawLine($pen, [single]$cx, [single]($by + $bh * 0.13), [single]$cx, [single]($by + $bh * 0.87))
-
-    # 左右文字行（错开表示切分后的内容）
-    $lx1 = $bx + $bw * 0.16
-    $lx2 = $cx - $s * 0.05
-    $rx1 = $cx + $s * 0.05
-    $rx2 = $bx + $bw * 0.84
-    $rows = @(
-        @($lx1, $lx2, $by + $bh * 0.30),
-        @($rx1, $rx2, $by + $bh * 0.44),
-        @($lx1, $lx2, $by + $bh * 0.58),
-        @($rx1, $rx2, $by + $bh * 0.72)
-    )
-    foreach ($row in $rows) {
-        $g.DrawLine($pen, [single]$row[0], [single]$row[2], [single]$row[1], [single]$row[2])
+            $pngPath = Join-Path $assetDir ("icon-{0}.png" -f $size)
+            $bitmap.Save($pngPath, [System.Drawing.Imaging.ImageFormat]::Png)
+        }
+        finally {
+            $graphics.Dispose()
+            $bitmap.Dispose()
+        }
     }
-
-    $ms = New-Object System.IO.MemoryStream
-    $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
-    $pngBytes += , $ms.ToArray()
-
-    $pngPath = Join-Path $assetDir ("icon-{0}.png" -f $s)
-    $bmp.Save($pngPath, [System.Drawing.Imaging.ImageFormat]::Png)
-
-    $g.Dispose()
-    $bmp.Dispose()
-    $ms.Dispose()
-    $bgBrush.Dispose()
+}
+finally {
+    $source.Dispose()
 }
 
-# 封装 ICO（Vista+ 支持 PNG 压缩条目）
-$count = $pngBytes.Count
-$ms = New-Object System.IO.MemoryStream
-$bw = New-Object System.IO.BinaryWriter($ms)
-$bw.Write([uint16]0)
-$bw.Write([uint16]1)
-$bw.Write([uint16]$count)
+# ICO 目录项内嵌 PNG，兼容 Windows Vista 及以上版本。
+$icoBytes = @()
+$icoBytes += [System.BitConverter]::GetBytes([uint16]0)
+$icoBytes += [System.BitConverter]::GetBytes([uint16]1)
+$icoBytes += [System.BitConverter]::GetBytes([uint16]$pngBytes.Count)
 
-$offset = 6 + 16 * $count
-for ($i = 0; $i -lt $count; $i++) {
-    $s = $sizes[$i]
-    $dim = if ($s -ge 256) { 0 } else { $s }
-    $b = $pngBytes[$i]
-    $bw.Write([byte]$dim)
-    $bw.Write([byte]$dim)
-    $bw.Write([byte]0)
-    $bw.Write([byte]0)
-    $bw.Write([uint16]1)
-    $bw.Write([uint16]32)
-    $bw.Write([uint32]$b.Length)
-    $bw.Write([uint32]$offset)
-    $offset += $b.Length
+$offset = 6 + 16 * $pngBytes.Count
+for ($index = 0; $index -lt $pngBytes.Count; $index++) {
+    $size = $sizes[$index]
+    $dimension = if ($size -ge 256) { 0 } else { $size }
+    $bytes = $pngBytes[$index]
+
+    $icoBytes += [byte]$dimension
+    $icoBytes += [byte]$dimension
+    $icoBytes += [byte]0
+    $icoBytes += [byte]0
+    $icoBytes += [System.BitConverter]::GetBytes([uint16]1)
+    $icoBytes += [System.BitConverter]::GetBytes([uint16]32)
+    $icoBytes += [System.BitConverter]::GetBytes([uint32]$bytes.Length)
+    $icoBytes += [System.BitConverter]::GetBytes([uint32]$offset)
+    $offset += $bytes.Length
 }
 
-foreach ($b in $pngBytes) {
-    $bw.Write($b)
+foreach ($bytes in $pngBytes) {
+    $icoBytes += $bytes
 }
-$bw.Flush()
+
 $icoPath = Join-Path $assetDir 'icon.ico'
-[System.IO.File]::WriteAllBytes($icoPath, $ms.ToArray())
-$bw.Dispose()
-$ms.Dispose()
+[System.IO.File]::WriteAllBytes($icoPath, [byte[]]$icoBytes)
 
-Write-Output "icons generated: $icoPath"
+Write-Output "icons generated from $sourcePath"
